@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Pocket Option OTC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#3b82f6',
+                        success: '#10b981',
+                        danger: '#ef4444',
+                        warning: '#f59e0b',
+                        dark: '#1e293b'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+        }
+        
+        .signal-acheter {
+            background: linear-gradient(to right, #10b981, #047857);
+            color: white;
+        }
+        
+        .signal-vendre {
+            background: linear-gradient(to right, #ef4444, #b91c1c);
+            color: white;
+        }
+        
+        .signal-neutre {
+            background: linear-gradient(to right, #64748b, #475569);
+            color: white;
+        }
+        
+        .chart-container {
+            background: rgba(30, 41, 59, 0.7);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .history-item {
+            transition: all 0.3s ease;
+        }
+        
+        .history-item:hover {
+            transform: translateX(5px);
+            background-color: rgba(30, 41, 59, 0.7);
+        }
+        
+        .glow-acheter {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.6);
+        }
+        
+        .glow-vendre {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+        }
+        
+        .glow-neutre {
+            box-shadow: 0 0 15px rgba(100, 116, 139, 0.6);
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-active {
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+        }
+        
+        .status-inactive {
+            background-color: #64748b;
+        }
+    </style>
+</head>
+<body class="text-gray-100 font-sans">
+    <div class="container mx-auto px-4 py-8 max-w-5xl">
+        <!-- Header -->
+        <header class="flex justify-between items-center mb-10">
+            <div>
+                <h1 class="text-3xl font-bold flex items-center">
+                    <i class="fas fa-robot mr-3 text-primary"></i>
+                    Bot Pocket Option OTC
+                </h1>
+                <p class="text-slate-400 mt-2">Analyse de marché en temps réel pour le trading OTC</p>
+            </div>
+            <div class="flex items-center">
+                <span id="auto-status" class="status-indicator status-inactive"></span>
+                <span id="status-text" class="text-sm font-medium">Mode automatique désactivé</span>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column - Controls -->
+            <div class="lg:col-span-1">
+                <div class="bg-slate-800 rounded-xl shadow-xl p-6">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-sliders-h mr-2"></i> Paramètres de Trading
+                    </h2>
+                    
+                    <div class="space-y-5">
+                        <!-- Market Selection -->
+                        <div>
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-chart-line mr-2"></i>Marché
+                            </label>
+                            <div class="relative">
+                                <select id="symbol" class="w-full bg-slate-700 border border-slate-600 rounded-lg py-3 px-4 appearance-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                                    <option value="EURUSD">EUR/USD</option>
+                                    <option value="GBPUSD">GBP/USD</option>
+                                    <option value="USDJPY">USD/JPY</option>
+                                    <option value="BTCUSD">BTC/USD</option>
+                                    <option value="ETHUSD">ETH/USD</option>
+                                </select>
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-400">
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Timeframe -->
+                        <div>
+                            <label class="block text-sm font-medium mb-2">
+                                <i class="fas fa-clock mr-2"></i>Temps trade (min)
+                            </label>
+                            <div class="flex items-center">
+                                <input id="tf" value="1" type="number" min="1" max="60" class="w-full bg-slate-700 border border-slate-600 rounded-lg py-3 px-4 focus:ring-2 focus:ring-primary focus:border-transparent">
+                                <span class="ml-3 text-sm text-slate-400">minutes</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Buttons -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4">
+                            <button id="go" class="bg-primary hover:bg-secondary transition py-3 px-4 rounded-lg font-medium flex items-center justify-center">
+                                <i class="fas fa-play-circle mr-2"></i> Analyser
+                            </button>
+                            <button id="auto" class="bg-success hover:bg-green-500 transition py-3 px-4 rounded-lg font-medium flex items-center justify-center">
+                                <i class="fas fa-sync-alt mr-2"></i> Auto
+                            </button>
+                            <button id="stop" class="bg-danger hover:bg-red-500 transition py-3 px-4 rounded-lg font-medium flex items-center justify-center">
+                                <i class="fas fa-stop-circle mr-2"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Additional Info Panel -->
+                <div class="bg-slate-800 rounded-xl shadow-xl p-6 mt-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i> Informations
+                    </h2>
+                    <div class="space-y-3 text-sm text-slate-300">
+                        <p class="flex items-start">
+                            <i class="fas fa-check-circle text-success mr-2 mt-1"></i>
+                            <span>L'analyse automatique s'exécute toutes les 30 secondes</span>
+                        </p>
+                        <p class="flex items-start">
+                            <i class="fas fa-history text-warning mr-2 mt-1"></i>
+                            <span>Les résultats précédents sont enregistrés dans l'historique</span>
+                        </p>
+                        <p class="flex items-start">
+                            <i class="fas fa-lightbulb text-primary mr-2 mt-1"></i>
+                            <span>Les signaux sont générés à partir de l'analyse de 120 périodes</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column - Results -->
+            <div class="lg:col-span-2">
+                <!-- Signal Display -->
+                <div class="bg-slate-800 rounded-xl shadow-xl p-6 mb-6">
+                    <h2 class="text-xl font-bold mb-6 flex items-center">
+                        <i class="fas fa-bell mr-2"></i> Signal Actuel
+                    </h2>
+                    
+                    <div id="signal-container" class="signal-neutre rounded-xl p-8 text-center transition-all duration-500">
+                        <div id="signal" class="text-4xl font-bold uppercase mb-4">En attente...</div>
+                        <div class="flex justify-center space-x-4">
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-2">
+                                    <i class="fas fa-chart-line text-2xl"></i>
+                                </div>
+                                <span id="symbol-display" class="text-sm">EUR/USD</span>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-16 rounded-full bg-slate-700 flex items-center justify-center mb-2">
+                                    <i class="fas fa-clock text-2xl"></i>
+                                </div>
+                                <span id="tf-display" class="text-sm">1 min</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Debug & History -->
+                <div class="grid grid-cols-1 gap-6">
+                    <!-- Debug Output -->
+                    <div class="bg-slate-800 rounded-xl shadow-xl p-6">
+                        <h2 class="text-xl font-bold mb-4 flex items-center">
+                            <i class="fas fa-code mr-2"></i> Détails de l'Analyse
+                        </h2>
+                        <div class="bg-slate-900 rounded-lg p-4 max-h-60 overflow-y-auto">
+                            <pre id="debug" class="text-sm text-slate-300 whitespace-pre-wrap">Aucune donnée d'analyse disponible. Cliquez sur "Analyser" pour commencer.</pre>
+                        </div>
+                    </div>
+                    
+                    <!-- History -->
+                    <div class="bg-slate-800 rounded-xl shadow-xl p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h2 class="text-xl font-bold flex items-center">
+                                <i class="fas fa-history mr-2"></i> Historique des Signaux
+                            </h2>
+                            <button id="clear-history" class="text-sm bg-slate-700 hover:bg-slate-600 transition py-1 px-3 rounded-lg flex items-center">
+                                <i class="fas fa-trash-alt mr-1"></i> Effacer
+                            </button>
+                        </div>
+                        <div class="bg-slate-900 rounded-lg p-4 max-h-60 overflow-y-auto">
+                            <ul id="log" class="space-y-2">
+                                <li class="text-center py-8 text-slate-500 italic">
+                                    Aucun historique disponible
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize elements
+        const symbolSelect = document.getElementById('symbol');
+        const tfInput = document.getElementById('tf');
+        const goBtn = document.getElementById('go');
+        const autoBtn = document.getElementById('auto');
+        const stopBtn = document.getElementById('stop');
+        const signalElement = document.getElementById('signal');
+        const signalContainer = document.getElementById('signal-container');
+        const debugElement = document.getElementById('debug');
+        const logElement = document.getElementById('log');
+        const clearHistoryBtn = document.getElementById('clear-history');
+        const statusIndicator = document.getElementById('auto-status');
+        const statusText = document.getElementById('status-text');
+        const symbolDisplay = document.getElementById('symbol-display');
+        const tfDisplay = document.getElementById('tf-display');
+        
+        let autoInterval = null;
+        
+        // Update symbol and timeframe displays
+        function updateDisplays() {
+            symbolDisplay.textContent = symbolSelect.options[symbolSelect.selectedIndex].text;
+            tfDisplay.textContent = `${tfInput.value} min`;
+        }
+        
+        // Initial display update
+        updateDisplays();
+        
+        // Update displays when values change
+        symbolSelect.addEventListener('change', updateDisplays);
+        tfInput.addEventListener('input', updateDisplays);
+        
+        // Analyze function (simulated)
+        async function analyze() {
+            const symbol = symbolSelect.value;
+            const tf = parseFloat(tfInput.value);
+            
+            // Show analyzing state
+            signalElement.textContent = 'Analyse en cours...';
+            signalContainer.className = 'signal-neutre rounded-xl p-8 text-center transition-all duration-500';
+            debugElement.textContent = 'Récupération des données...';
+            
+            try {
+                // Simulate API call delay
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Generate a random signal for demonstration
+                const signals = ['ACHETER', 'VENDRE', 'NEUTRE'];
+                const randomSignal = signals[Math.floor(Math.random() * signals.length)];
+                
+                // Update signal display
+                signalElement.textContent = randomSignal;
+                signalContainer.className = `signal-${randomSignal.toLowerCase()} rounded-xl p-8 text-center transition-all duration-500 glow-${randomSignal.toLowerCase()}`;
+                
+                // Generate debug info
+                const reasons = {
+                    ACHETER: {
+                        trend: "Haussière",
+                        rsi: "30 (Oversold)",
+                        macd: "Croisement haussier",
+                        volume: "Volume en hausse"
+                    },
+                    VENDRE: {
+                        trend: "Baissière",
+                        rsi: "70 (Overbought)",
+                        macd: "Croisement baissier",
+                        volume: "Volume en baisse"
+                    },
+                    NEUTRE: {
+                        trend: "Latérale",
+                        rsi: "50 (Neutre)",
+                        macd: "Pas de croisement significatif",
+                        volume: "Volume stable"
+                    }
+                };
+                
+                const debugInfo = `Symbol: ${symbol}\nTimeframe: ${tf} minutes\n\nIndicateurs:\n`;
+                const reason = reasons[randomSignal];
+                const reasonText = `- Tendance: ${reason.trend}\n- RSI: ${reason.rsi}\n- MACD: ${reason.macd}\n- Volume: ${reason.volume}`;
+                
+                debugElement.textContent = debugInfo + reasonText;
+                
+                // Add to history
+                const time = new Date().toLocaleTimeString();
+                const li = document.createElement("li");
+                li.className = "history-item bg-slate-800 rounded-lg p-3 flex items-center";
+                
+                let iconClass, textColor;
+                if (randomSignal === 'ACHETER') {
+                    iconClass = 'fa-arrow-up text-success';
+                    textColor = 'text-success';
+                } else if (randomSignal === 'VENDRE') {
+                    iconClass = 'fa-arrow-down text-danger';
+                    textColor = 'text-danger';
+                } else {
+                    iconClass = 'fa-minus text-slate-400';
+                    textColor = 'text-slate-400';
+                }
+                
+                li.innerHTML = `
+                    <div class="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center mr-3">
+                        <i class="fas ${iconClass}"></i>
+                    </div>
+                    <div>
+                        <div class="font-medium ${textColor}">${symbol} - ${randomSignal}</div>
+                        <div class="text-xs text-slate-400">${time} | ${tf} min</div>
+                    </div>
+                `;
+                
+                // Remove placeholder if exists
+                if (logElement.querySelector('.text-slate-500')) {
+                    logElement.innerHTML = '';
+                }
+                
+                logElement.prepend(li);
+                
+            } catch(e) {
+                signalElement.textContent = 'Erreur';
+                signalContainer.className = 'signal-neutre rounded-xl p-8 text-center transition-all duration-500';
+                debugElement.textContent = e.toString();
+            }
+        }
+        
+        // Toggle auto status display
+        function updateAutoStatus() {
+            if (autoInterval) {
+                statusIndicator.className = 'status-indicator status-active';
+                statusText.textContent = 'Mode automatique actif';
+                statusText.className = 'text-sm font-medium text-success';
+            } else {
+                statusIndicator.className = 'status-indicator status-inactive';
+                statusText.textContent = 'Mode automatique désactivé';
+                statusText.className = 'text-sm font-medium text-slate-400';
+            }
+        }
+        
+        // Event listeners
+        goBtn.addEventListener('click', analyze);
+        
+        autoBtn.addEventListener('click', () => {
+            if (autoInterval) return;
+            autoInterval = setInterval(analyze, 30000);
+            updateAutoStatus();
+            analyze();
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            clearInterval(autoInterval);
+            autoInterval = null;
+            updateAutoStatus();
+        });
+        
+        clearHistoryBtn.addEventListener('click', () => {
+            logElement.innerHTML = '<li class="text-center py-8 text-slate-500 italic">Aucun historique disponible</li>';
+        });
+        
+        // Initialize auto status
+        updateAutoStatus();
+        
+        // Initialize displays
+        updateDisplays();
+    </script>
+</body>
+</html>
